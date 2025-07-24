@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grow a Garden - Choose Your Pets!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #F0FDF4; /* Light Green */
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A3E635' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .pet-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .pet-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        .pet-card.selected {
+            transform: translateY(-5px) scale(1.02);
+            border-color: #84CC16; /* Lime 500 */
+            box-shadow: 0 0 30px #84CC16;
+        }
+        
+        .pet-card.disabled:not(.selected) {
+            cursor: not-allowed;
+            opacity: 0.6;
+            filter: grayscale(80%);
+        }
+
+        .rarity-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .rarity-Common { background-color: #D1D5DB; color: #374151; }
+        .rarity-Uncommon { background-color: #6EE7B7; color: #047857; }
+        .rarity-Rare { background-color: #60A5FA; color: #1E40AF; }
+        .rarity-Legendary { background-color: #FBBF24; color: #92400E; }
+        .rarity-Mythic { background-color: #E879F9; color: #86198F; }
+        
+        /* -- Sticky Header System -- */
+        #sticky-header-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 50;
+            background-color: transparent;
+            box-shadow: none;
+            transform: translateY(-100%);
+            transition: transform 0.4s ease-in-out;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        
+        body.header-is-sticky #sticky-header-container {
+            transform: translateY(0);
+            visibility: visible;
+        }
+
+        body.header-is-sticky #sticky-header-container #pet-counter {
+            filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.25));
+            transition: filter 0.3s ease-in-out;
+        }
+
+        body.header-is-sticky #header-content {
+            visibility: hidden;
+        }
+		
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- This header becomes sticky -->
+    <div id="sticky-header-container" class="py-4">
+        <!-- The counter will be cloned here by JS -->
+    </div>
+
+    <main class="w-full max-w-7xl mx-auto p-4 md:p-8">
+
+        <!-- Page 1: Pet Selection -->
+        <section id="pet-selection-page">
+            <div id="header-content" class="text-center">
+                <img src="https://static.wikia.nocookie.net/growagarden/images/3/39/Site-community-image/revision/latest?cb=20250514081717" alt="Grow a Garden Title" class="mx-auto mb-1 drop-shadow-1xl">
+                <div id="counter-container" class="py-4">
+                    <div id="pet-counter" class="text-3xl font-bold bg-lime-600 text-white rounded-full w-28 h-28 flex items-center justify-center mx-auto shadow-xl border-4 border-white transition-all duration-150">
+                        0/3
+                    </div>
+                </div>
+            </div>
+            
+            <div id="header-sentinel" style="height: 1px;"></div>
+
+            <div id="pet-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                <!-- Pets will be dynamically inserted here by JavaScript -->
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const petGrid = document.getElementById('pet-grid');
+            const petCounter = document.getElementById('pet-counter');
+            const counterContainer = document.getElementById('counter-container');
+            const headerSentinel = document.getElementById('header-sentinel');
+            const stickyHeaderContainer = document.getElementById('sticky-header-container');
+
+            const MAX_PETS = 3;
+            let selectedPets = [];
+            let observer;
+
+            const petsData = [
+                // Common
+                { name: 'Bee', rarity: 'Common', img: 'https://www.rpgstash.com/222304-catalog_page/rbl-bee-roblox-other-items-6056.jpg' },
+                { name: 'Bunny', rarity: 'Common', img: 'https://www.rpgstash.com/222301-catalog_page/rbl-bunny-roblox-other-items-6053.jpg' },
+                { name: 'Crab', rarity: 'Common', img: 'https://www.rpgstash.com/224908-catalog_page/rbl-crab-roblox-other-items-6250.jpg' },
+                { name: 'Golden Lab', rarity: 'Common', img: 'https://www.rpgstash.com/222303-catalog_page/rbl-golden-lab-roblox-other-items-6055.jpg' },
+                { name: 'Seagull', rarity: 'Common', img: 'https://www.rpgstash.com/224907-catalog_page/rbl-seagull-roblox-other-items-6249.jpg' },
+                { name: 'Starfish', rarity: 'Common', img: 'https://www.rpgstash.com/224906-catalog_page/rbl-starfish-roblox-other-items-6248.jpg' },
+                // Uncommon
+                { name: 'Black Bunny', rarity: 'Uncommon', img: 'https://www.rpgstash.com/222305-catalog_page/rbl-black-bunny-roblox-other-items-6057.jpg' },
+                { name: 'Chicken', rarity: 'Uncommon', img: 'https://www.rpgstash.com/222306-catalog_page/rbl-chicken-roblox-other-items-6058.jpg' },
+                { name: 'Deer', rarity: 'Uncommon', img: 'https://www.rpgstash.com/222307-catalog_page/rbl-deer-roblox-other-items-6059.jpg' },
+                // Rare
+                { name: 'Flamingo', rarity: 'Rare', img: 'https://www.rpgstash.com/224909-catalog_page/rbl-flamingo-roblox-other-items-6251.jpg' },
+                { name: 'Hedgehog', rarity: 'Rare', img: 'https://www.rpgstash.com/222325-catalog_page/rbl-hedgehog-roblox-other-items-6077.jpg' },
+                { name: 'Honey Bee', rarity: 'Rare', img: 'https://www.rpgstash.com/222312-catalog_page/rbl-honey-bee-roblox-other-items-6064.jpg' },
+                { name: 'Kiwi', rarity: 'Rare', img: 'https://www.rpgstash.com/222326-catalog_page/rbl-kiwi-roblox-other-items-6078.jpg' },
+                { name: 'Orangutan', rarity: 'Rare', img: 'https://www.rpgstash.com/224910-catalog_page/rbl-oragutan-roblox-other-items-6252.jpg' },
+                { name: 'Rooster', rarity: 'Rare', img: 'https://www.rpgstash.com/222310-catalog_page/rbl-rooster-roblox-other-items-6062.jpg' },
+                { name: 'Seal', rarity: 'Rare', img: 'https://www.rpgstash.com/224911-catalog_page/rbl-seal-roblox-other-items-6253.jpg' },
+                { name: 'Spotted Deer', rarity: 'Rare', img: 'https://www.rpgstash.com/222311-catalog_page/rbl-spotted-deer-roblox-other-items-6063.jpg' },
+                { name: 'Toucan', rarity: 'Rare', img: 'https://www.rpgstash.com/224913-catalog_page/rbl-toucan-roblox-other-items-6255.jpg' },
+                // Legendary
+                { name: 'Bald Eagle', rarity: 'Legendary', img: 'https://www.rpgstash.com/227228-catalog_page/rbl-bald-eagle-roblox-other-items-6390.jpg' },
+                { name: 'Capybara', rarity: 'Legendary', img: 'https://www.rpgstash.com/224903-catalog_page/rbl-capybara-roblox-other-items-6245.jpg' },
+                { name: 'Frog', rarity: 'Legendary', img: 'https://www.rpgstash.com/222328-catalog_page/rbl-frog-roblox-other-items-6080.jpg' },
+                { name: 'Kitsune', rarity: 'Legendary', img: 'https://www.rpgstash.com/230041-catalog_page/rbl-kitsune-roblox-other-items-476.jpg' },
+                { name: 'Meerkat', rarity: 'Legendary', img: 'https://www.rpgstash.com/225794-catalog_page/rbl-meerkat-roblox-other-items-6314.jpg' },
+                { name: 'Mole', rarity: 'Legendary', img: 'https://www.rpgstash.com/222329-catalog_page/rbl-mole-roblox-other-items-6081.jpg' },
+                { name: 'Moon Cat', rarity: 'Legendary', img: 'https://www.rpgstash.com/222330-catalog_page/rbl-moon-cat-roblox-other-items-6082.jpg' },
+                { name: 'Panda', rarity: 'Legendary', img: 'https://www.rpgstash.com/222327-catalog_page/rbl-panda-roblox-other-items-6079.jpg' },
+                { name: 'Peacock', rarity: 'Legendary', img: 'https://www.rpgstash.com/224902-catalog_page/rbl-peacock-roblox-other-items-6244.jpg' },
+                { name: 'Petal Bee', rarity: 'Legendary', img: 'https://www.rpgstash.com/222316-catalog_page/rbl-petal-bee-roblox-other-items-6068.jpg' },
+                { name: 'Polar Bear', rarity: 'Legendary', img: 'https://www.rpgstash.com/220011-catalog_page/rbl-polar-bear-roblox-other-items-4969.jpg' },
+                { name: 'Pterodactyl', rarity: 'Legendary', img: 'https://www.rpgstash.com/227224-catalog_page/rbl-pterodactyl-roblox-other-items-6386.jpg' },
+                { name: 'Raptor', rarity: 'Legendary', img: 'https://www.rpgstash.com/227227-catalog_page/rbl-raptor-roblox-other-items-6389.jpg' },
+                { name: 'Sand Snake', rarity: 'Legendary', img: 'https://www.rpgstash.com/225784-catalog_page/rbl-sand-snake-roblox-other-items-6304.jpg' },
+                { name: 'Scarlet Macaw', rarity: 'Legendary', img: 'https://www.rpgstash.com/224904-catalog_page/rbl-scarlet-macaw-roblox-other-items-6246.jpg' },
+                { name: 'Sea Otter', rarity: 'Legendary', img: 'https://www.rpgstash.com/222314-catalog_page/rbl-sea-otter-roblox-other-items-6066.jpg' },
+                { name: 'Silver Monkey', rarity: 'Legendary', img: 'https://www.rpgstash.com/222315-catalog_page/rbl-silver-monkey-roblox-other-items-6067.jpg' },
+                { name: 'Stegosaurus', rarity: 'Legendary', img: 'https://www.rpgstash.com/227225-catalog_page/rbl-stegosaurus-roblox-other-items-6387.jpg' },
+                { name: 'Tanchozuru', rarity: 'Legendary', img: 'https://www.rpgstash.com/230043-catalog_page/rbl-tanchozuru-roblox-other-items-486.jpg' },
+                { name: 'Triceratops', rarity: 'Legendary', img: 'https://www.rpgstash.com/227226-catalog_page/rbl-triceratops-roblox-other-items-6388.jpg' },
+                // Mythic
+                { name: 'Ankylosaurus', rarity: 'Mythic', img: 'https://www.rpgstash.com/228187-catalog_page/rbl-ankylosaurus-roblox-other-items-6443.jpg' },
+                { name: 'Axolotl', rarity: 'Mythic', img: 'https://www.rpgstash.com/225785-catalog_page/rbl-axolotl-roblox-other-items-6305.jpg' },
+                { name: 'Bear Bee', rarity: 'Mythic', img: 'https://www.rpgstash.com/222324-catalog_page/rbl-bear-bee-roblox-other-items-6076.jpg' },
+                { name: 'Blood Owl', rarity: 'Mythic', img: 'https://www.rpgstash.com/220002-catalog_page/rbl-blood-owl-roblox-other-items-4960.jpg' },
+                { name: 'Brontosaurus', rarity: 'Mythic', img: 'https://www.rpgstash.com/227223-catalog_page/rbl-brontosaurus-roblox-other-items-6385.jpg' },
+                { name: 'Butterfly', rarity: 'Mythic', img: 'https://www.rpgstash.com/223274-catalog_page/rbl-butterfly-roblox-other-items-6118.jpg' },
+                { name: 'Caterpillar', rarity: 'Mythic', img: 'https://www.rpgstash.com/222318-catalog_page/rbl-caterpillar-roblox-other-items-6070.jpg' },
+                { name: 'Chicken Zombie', rarity: 'Mythic', img: 'https://www.rpgstash.com/220001-catalog_page/rbl-chicken-zombie-roblox-other-items-4959.jpg' },
+                { name: 'Dilophosaurus', rarity: 'Mythic', img: 'https://www.rpgstash.com/228186-catalog_page/rbl-dilophosaurus-roblox-other-items-6442.jpg' },
+                { name: 'Disco Bee', rarity: 'Mythic', img: 'https://www.rpgstash.com/223273-catalog_page/rbl-disco-bee-roblox-other-items-6117.jpg' },
+                { name: 'Dragonfly', rarity: 'Mythic', img: 'https://www.rpgstash.com/219991-catalog_page/rbl-dragonfly-roblox-other-items-4949.jpg' },
+                { name: 'Echo Frog', rarity: 'Mythic', img: 'https://www.rpgstash.com/220017-catalog_page/rbl-echo-frog-roblox-other-items-4975.jpg' },
+                { name: 'Fennec Fox', rarity: 'Mythic', img: 'https://www.rpgstash.com/225787-catalog_page/rbl-fennec-fox-roblox-other-items-6307.jpg' },
+                { name: 'Giant Ant', rarity: 'Mythic', img: 'https://www.rpgstash.com/222319-catalog_page/rbl-giant-ant-roblox-other-items-6071.jpg' },
+                { name: 'Hamster', rarity: 'Mythic', img: 'https://www.rpgstash.com/225788-catalog_page/rbl-hamster-roblox-other-items-6308.jpg' },
+                { name: 'Hyacinth Macaw', rarity: 'Mythic', img: 'https://www.rpgstash.com/225786-catalog_page/rbl-hyacinth-macaw-roblox-other-items-6306.jpg' },
+                { name: 'Kappa', rarity: 'Mythic', img: 'https://www.rpgstash.com/230042-catalog_page/rbl-kappa-roblox-other-items-481.jpg' },
+                { name: 'Mimic Octopus', rarity: 'Mythic', img: 'https://www.rpgstash.com/224905-catalog_page/rbl-mimic-octopus-roblox-other-items-6247.jpg' },
+                { name: 'Night Owl', rarity: 'Mythic', img: 'https://www.rpgstash.com/220042-catalog_page/rbl-night-owl-roblox-other-items-5000.jpg' },
+                { name: 'Praying Mantis', rarity: 'Mythic', img: 'https://www.rpgstash.com/222295-catalog_page/rbl-praying-mantis-roblox-other-items-4956.png' },
+                { name: 'Queen Bee', rarity: 'Mythic', img: 'https://www.rpgstash.com/222294-catalog_page/rbl-queen-bee-roblox-other-items-6051.png' },
+                { name: 'Raccoon', rarity: 'Mythic', img: 'https://www.rpgstash.com/219990-catalog_page/rbl-raccoon-roblox-other-items-4948.jpg' },
+                { name: 'Red Fox', rarity: 'Mythic', img: 'https://www.rpgstash.com/219992-catalog_page/rbl-red-fox-roblox-other-items-4950.jpg' },
+                { name: 'Red Giant Ant', rarity: 'Mythic', img: 'https://www.rpgstash.com/222321-catalog_page/rbl-red-giant-ant-roblox-other-items-6073.jpg' },
+                { name: 'Spinosaurus', rarity: 'Mythic', img: 'https://www.rpgstash.com/228188-catalog_page/rbl-spinosaurus-roblox-other-items-6444.jpg' },
+                { name: 'Squirrel', rarity: 'Mythic', img: 'https://www.rpgstash.com/222323-catalog_page/rbl-squirrel-roblox-other-items-6075.jpg' },
+                { name: 'T-Rex', rarity: 'Mythic', img: 'https://www.rpgstash.com/227222-catalog_page/rbl-t-rex-roblox-other-items-6384.jpg' },
+                { name: 'Turtle', rarity: 'Mythic', img: 'https://www.rpgstash.com/220000-catalog_page/rbl-turtle-roblox-other-items-4958.jpg' },
+            ];
+
+            const initStickyHeader = () => {
+                const stickyCounterClone = counterContainer.cloneNode(true);
+                stickyCounterClone.id = 'sticky-counter-container';
+                stickyHeaderContainer.appendChild(stickyCounterClone);
+                
+                const handler = (entries) => {
+                    document.body.classList.toggle('header-is-sticky', !entries[0].isIntersecting);
+                };
+
+                observer = new IntersectionObserver(handler);
+                observer.observe(headerSentinel);
+            };
+
+            const renderPets = () => {
+                petGrid.innerHTML = '';
+                petsData.forEach((pet, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'pet-card bg-white rounded-2xl shadow-lg overflow-hidden border-4 border-transparent';
+                    card.dataset.index = index;
+                    card.innerHTML = `
+                        <img src="${pet.img}" alt="${pet.name}" class="w-full h-auto object-cover aspect-square" onerror="this.onerror=null;this.src='https://placehold.co/200x200/F0FDF4/9CA3AF?text=Image+Missing';">
+                        <div class="p-4 text-center">
+                            <h3 class="font-bold text-lg text-yellow-900">${pet.name}</h3>
+                            <span class="rarity-badge rarity-${pet.rarity}">${pet.rarity}</span>
+                        </div>`;
+                    card.addEventListener('click', () => handlePetClick(card, pet));
+                    petGrid.appendChild(card);
+                });
+            };
+
+            const handlePetClick = (cardElement, pet) => {
+                if (selectedPets.length >= MAX_PETS) return; // Stop if max is reached
+
+                const isSelected = selectedPets.some(p => p.name === pet.name);
+
+                if (isSelected) {
+                    selectedPets = selectedPets.filter(p => p.name !== pet.name);
+                    cardElement.classList.remove('selected');
+                } else {
+                    selectedPets.push(pet);
+                    cardElement.classList.add('selected');
+                }
+                
+                updateCounterAndState();
+            };
+
+            const updateCounterAndState = () => {
+                const newCountText = `${selectedPets.length}/${MAX_PETS}`;
+                document.querySelectorAll('#pet-counter').forEach(el => el.textContent = newCountText);
+                
+                petCounter.style.transform = 'scale(1.1)';
+                setTimeout(() => petCounter.style.transform = 'scale(1)'), 150;
+
+                const allCards = document.querySelectorAll('.pet-card');
+                if (selectedPets.length >= MAX_PETS) {
+                    allCards.forEach(card => card.classList.add('disabled'));
+                    // Everything pauses here, no more transitions
+                } else {
+                    allCards.forEach(card => card.classList.remove('disabled'));
+                }
+            };
+            
+            // --- APP INITIALIZATION ---
+            initStickyHeader();
+            renderPets();
+        });
+    </script>
+</body>
+</html>
